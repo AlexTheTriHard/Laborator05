@@ -1,19 +1,27 @@
 package ro.pub.cs.systems.eim.lab05.boundedserviceactivity.view;
 
+import android.content.ComponentName;
+import android.content.Context;
+import android.content.Intent;
+import android.content.ServiceConnection;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
+
+import java.sql.Timestamp;
 
 import ro.pub.cs.systems.eim.lab05.boundedserviceactivity.R;
 import ro.pub.cs.systems.eim.lab05.boundedserviceactivity.general.Constants;
 import ro.pub.cs.systems.eim.lab05.boundedserviceactivity.service.BoundedService;
 
-public class BoundedServiceActivity extends AppCompatActivity {
+public class BoundedServiceActivity extends AppCompatActivity implements View.OnClickListener {
 
     private TextView messageFromServiceTextView;
     private Button getMessageFromServiceButton;
@@ -22,7 +30,20 @@ public class BoundedServiceActivity extends AppCompatActivity {
     private int boundedServiceStatus;
 
     // TODO: exercise 9e - implement a button click listener for getMessageFromServiceButton
+    private ServiceConnection serviceConnection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName className, IBinder service) {
+            BoundedService.BoundedServiceBinder binder = (BoundedService.BoundedServiceBinder)service;
+            boundedService = binder.getService();
+            boundedServiceStatus = Constants.SERVICE_STATUS_BOUND;
+        }
 
+        @Override
+        public void onServiceDisconnected(ComponentName className) {
+            boundedService = null;
+            boundedServiceStatus = Constants.SERVICE_STATUS_UNBOUND;
+        }
+    };
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -32,20 +53,30 @@ public class BoundedServiceActivity extends AppCompatActivity {
 
         messageFromServiceTextView = (TextView)findViewById(R.id.message_from_service_text_view);
         getMessageFromServiceButton = (Button)findViewById(R.id.get_message_from_service_button);
+        getMessageFromServiceButton.setOnClickListener(this);
         // TODO: exercise 9e - set an instance of the button click listener to handle click events
         // for getMessageFromServiceButton
+        Log.d(Constants.TAG, "onCreate() method was invoked");
     }
 
     @Override
     protected void onStart() {
         super.onStart();
         // TODO: exercise 9d - bind the service through an intent
+        Intent intent = new Intent(this, BoundedService.class);
+        bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
+        Log.d(Constants.TAG, "onStart() method was invoked");
     }
 
     @Override
     protected void onStop() {
         super.onStop();
         // TODO: exercise 9d - unbind the service
+        if (boundedServiceStatus == Constants.SERVICE_STATUS_BOUND) {
+            unbindService(serviceConnection);
+            boundedServiceStatus = Constants.SERVICE_STATUS_UNBOUND;
+        }
+        Log.d(Constants.TAG, "onStop() method was invoked");
     }
 
     // TODO: exercise 9c - create a ServiceConnection object
@@ -71,5 +102,12 @@ public class BoundedServiceActivity extends AppCompatActivity {
         }
 
         return super.onOptionsItemSelected(item);
+    }
+
+    @Override
+    public void onClick(View v) {
+        if (boundedService != null && boundedServiceStatus == Constants.SERVICE_STATUS_BOUND) {
+            messageFromServiceTextView.setText("[" + new Timestamp(System.currentTimeMillis()) + "] " + boundedService.getMessage() + "\n" + messageFromServiceTextView.getText().toString());
+        }
     }
 }
